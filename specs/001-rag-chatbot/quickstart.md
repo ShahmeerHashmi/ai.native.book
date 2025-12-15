@@ -49,8 +49,14 @@ Processing: docs/ros2.md
 Ingestion complete: 12 documents, 87 chunks
 ```
 
-### 4. Start Backend Server
+### 4. Backend Server
 
+The backend is deployed on Vercel at:
+```
+https://ai-native-book-sand.vercel.app/
+```
+
+For local development:
 ```bash
 # From project root
 uvicorn main:app --reload --port 8000
@@ -90,7 +96,7 @@ Open http://localhost:3000 in your browser.
 
 ## Verification Checklist
 
-- [ ] Backend health check: `curl http://localhost:8000/health`
+- [ ] Backend health check: `curl https://ai-native-book-sand.vercel.app/health`
 - [ ] Chat panel visible on Docusaurus pages
 - [ ] General question returns answer with book context
 - [ ] Highlighted text + question returns context-specific answer
