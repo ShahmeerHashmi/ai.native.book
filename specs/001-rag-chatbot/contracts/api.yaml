@@ -1,0 +1,230 @@
+openapi: 3.0.3
+info:
+  title: RAG Chatbot API
+  description: API for the Integrated RAG Chatbot embedded in Docusaurus book
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /chatkit:
+    post:
+      summary: ChatKit protocol endpoint
+      description: |
+        Main endpoint for ChatKit client communication.
+        Handles message sending, thread management, and streaming responses.
+        Follows the OpenAI ChatKit protocol.
+      operationId: chatkit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatKitRequest'
+      responses:
+        '200':
+          description: Successful response (streaming or JSON)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE stream of ChatKit events
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatKitResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chat:
+    post:
+      summary: Direct chat endpoint (alternative to ChatKit)
+      description: |
+        Simplified chat endpoint for direct integration.
+        Supports both full-book RAG and selected-text modes.
+      operationId: chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Streaming response
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE stream of response chunks
+        '400':
+          description: Invalid request
+        '500':
+          description: Server error
+
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Check if the server and dependencies are healthy
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Server is unhealthy
+
+components:
+  schemas:
+    ChatKitRequest:
+      type: object
+      description: Request body following ChatKit protocol
+      properties:
+        type:
+          type: string
+          enum: [send_message, load_thread, create_thread]
+        thread_id:
+          type: string
+          format: uuid
+        message:
+          type: object
+          properties:
+            content:
+              type: string
+            attachments:
+              type: array
+              items:
+                type: object
+        context:
+          type: object
+          description: Additional context including selected_text
+          properties:
+            selected_text:
+              type: string
+              description: User-highlighted text for selected-text mode
+
+    ChatKitResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+
+    ChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: User's question
+          minLength: 1
+          maxLength: 5000
+        selected_text:
+          type: string
+          description: |
+            Optional user-highlighted text.
+            If provided, enables selected-text mode (no RAG retrieval).
+            If omitted, enables full-book RAG mode.
+          maxLength: 10000
+        thread_id:
+          type: string
+          format: uuid
+          description: Optional thread ID for conversation context
+
+    ChatResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Assistant's response
+        sources:
+          type: array
+          description: Retrieved sources (only in RAG mode)
+          items:
+            $ref: '#/components/schemas/Source'
+        mode:
+          type: string
+          enum: [rag, selected_text]
+          description: Mode used for this response
+
+    Source:
+      type: object
+      properties:
+        document_path:
+          type: string
+        document_title:
+          type: string
+        chunk_content:
+          type: string
+          description: Relevant excerpt from the book
+        relevance_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        services:
+          type: object
+          properties:
+            database:
+              type: string
+              enum: [connected, disconnected]
+            qdrant:
+              type: string
+              enum: [connected, disconnected]
+            gemini:
+              type: string
+              enum: [available, unavailable]
+            cohere:
+              type: string
+              enum: [available, unavailable]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+        code:
+          type: string
+
+    SSEEvent:
+      type: object
+      description: Server-Sent Event format
+      properties:
+        event:
+          type: string
+          enum: [message, done, error, source]
+        data:
+          type: string
+          description: JSON-encoded event data
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Domain-Key
+      description: Domain key for ChatKit authentication (local-dev for development)
