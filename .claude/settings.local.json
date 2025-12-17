@@ -15,7 +15,8 @@
       "Bash(npx docusaurus:*)",
       "Bash(npm run start)",
       "WebSearch",
-      "WebFetch(domain:console.groq.com)"
+      "WebFetch(domain:console.groq.com)",
+      "Bash(cat:*)"
     ]
   }
 }

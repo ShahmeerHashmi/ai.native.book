@@ -135,6 +135,31 @@ app.add_middleware(
 )
 
 
+def format_history_for_context(history: list, max_messages: int = 8) -> str:
+    """Format conversation history into a compact string for context.
+
+    Limits to last max_messages to save tokens.
+    Truncates long messages to 200 chars.
+    """
+    if not history:
+        return ""
+
+    # Take only last N messages
+    recent = history[-max_messages:]
+
+    lines = []
+    for msg in recent:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        # Truncate long messages
+        if len(content) > 200:
+            content = content[:200] + "..."
+        prefix = "User" if role == "user" else "Assistant"
+        lines.append(f"{prefix}: {content}")
+
+    return "\n".join(lines)
+
+
 @app.post("/chatkit")
 async def chatkit_endpoint(request: Request):
     """
@@ -168,6 +193,10 @@ async def chatkit_endpoint(request: Request):
     context = body.get("context", {})
     selected_text = context.get("selected_text") if isinstance(context, dict) else None
 
+    # Get conversation history (for context window)
+    history = body.get("history", [])
+    history_context = format_history_for_context(history)
+
     # Validate selected text length
     if selected_text and len(selected_text) > MAX_SELECTED_TEXT_LENGTH:
         return JSONResponse(
@@ -177,6 +206,12 @@ async def chatkit_endpoint(request: Request):
                 "code": "SELECTED_TEXT_TOO_LONG",
             },
         )
+
+    # Build input with history context if available
+    if history_context:
+        full_input = f"[Previous conversation]\n{history_context}\n\n[Current question]\n{content}"
+    else:
+        full_input = content
 
     # Choose agent based on mode
     if selected_text:
@@ -189,7 +224,7 @@ async def chatkit_endpoint(request: Request):
     # Run agent with streaming
     result = Runner.run_streamed(
         agent,
-        input=content,
+        input=full_input,
     )
 
     return StreamingResponse(
