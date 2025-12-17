@@ -45,26 +45,6 @@ groq_model = OpenAIChatCompletionsModel(
 )
 
 
-# RAG mode agent (with search_book tool)
-rag_agent = Agent(
-    name="Book Assistant",
-    instructions="""You are a helpful assistant for the AI Robotics textbook.
-
-Your job is to answer questions about robotics, AI, ROS2, simulation, and related topics
-based on the content in the textbook.
-
-Guidelines:
-1. ALWAYS use the search_book tool first to find relevant content before answering.
-2. Base your answers ONLY on the content retrieved from the book.
-3. If the search results don't contain relevant information, say so honestly.
-4. Cite your sources by mentioning which chapter/document the information comes from.
-5. Be helpful, clear, and accurate in your responses.
-6. If asked about something not covered in the book, explain that it's not in the textbook.""",
-    model=groq_model,
-    tools=[search_book],
-)
-
-
 def create_selection_agent(selected_text: str) -> Agent:
     """Create an agent for selected-text mode (no tools)."""
     return Agent(
@@ -135,11 +115,11 @@ app.add_middleware(
 )
 
 
-def format_history_for_context(history: list, max_messages: int = 8) -> str:
+def format_history_for_context(history: list, max_messages: int = 6) -> str:
     """Format conversation history into a compact string for context.
 
     Limits to last max_messages to save tokens.
-    Truncates long messages to 200 chars.
+    Truncates long messages to 150 chars.
     """
     if not history:
         return ""
@@ -152,12 +132,42 @@ def format_history_for_context(history: list, max_messages: int = 8) -> str:
         role = msg.get("role", "user")
         content = msg.get("content", "")
         # Truncate long messages
-        if len(content) > 200:
-            content = content[:200] + "..."
-        prefix = "User" if role == "user" else "Assistant"
+        if len(content) > 150:
+            content = content[:150] + "..."
+        prefix = "Q" if role == "user" else "A"
         lines.append(f"{prefix}: {content}")
 
     return "\n".join(lines)
+
+
+def create_rag_agent_with_history(history_context: str) -> Agent:
+    """Create RAG agent with conversation history in instructions."""
+    history_section = ""
+    if history_context:
+        history_section = f"""
+
+Recent conversation for context (use this to understand follow-up questions):
+{history_context}
+"""
+
+    return Agent(
+        name="Book Assistant",
+        instructions=f"""You are a helpful assistant for the AI Robotics textbook.
+
+Your job is to answer questions about robotics, AI, ROS2, simulation, and related topics
+based on the content in the textbook.
+{history_section}
+Guidelines:
+1. ALWAYS use the search_book tool first to find relevant content before answering.
+2. Base your answers ONLY on the content retrieved from the book.
+3. If the search results don't contain relevant information, say so honestly.
+4. Cite your sources by mentioning which chapter/document the information comes from.
+5. Be helpful, clear, and accurate in your responses.
+6. If asked about something not covered in the book, explain that it's not in the textbook.
+7. For follow-up questions, use the conversation context above to understand what the user is referring to.""",
+        model=groq_model,
+        tools=[search_book],
+    )
 
 
 @app.post("/chatkit")
@@ -207,24 +217,18 @@ async def chatkit_endpoint(request: Request):
             },
         )
 
-    # Build input with history context if available
-    if history_context:
-        full_input = f"[Previous conversation]\n{history_context}\n\n[Current question]\n{content}"
-    else:
-        full_input = content
-
     # Choose agent based on mode
     if selected_text:
         # Selected-text mode: no retrieval, answer from selection only
         agent = create_selection_agent(selected_text)
     else:
-        # Full-book RAG mode: use search_book tool
-        agent = rag_agent
+        # Full-book RAG mode: create agent with history context in instructions
+        agent = create_rag_agent_with_history(history_context)
 
-    # Run agent with streaming
+    # Run agent with streaming (send only current question as input)
     result = Runner.run_streamed(
         agent,
-        input=full_input,
+        input=content,
     )
 
     return StreamingResponse(
