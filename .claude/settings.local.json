@@ -14,7 +14,8 @@
       "Bash(npm install:*)",
       "Bash(npx docusaurus:*)",
       "Bash(npm run start)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:console.groq.com)"
     ]
   }
 }

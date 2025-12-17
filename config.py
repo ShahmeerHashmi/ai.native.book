@@ -15,10 +15,10 @@ def get_required_env(key: str) -> str:
     return value
 
 
-# Gemini API (generation)
-GEMINI_API_KEY = get_required_env("GEMINI_API_KEY")
-GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
-GEMINI_MODEL = "gemini-2.5-flash"  # Latest flash model
+# Groq API (generation)
+GROQ_API_KEY = get_required_env("GROQ_API_KEY")
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+GROQ_MODEL = "llama-3.3-70b-versatile"  # Larger model, more capable
 
 # Cohere API (embeddings)
 COHERE_API_KEY = get_required_env("COHERE_API_KEY")

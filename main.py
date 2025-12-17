@@ -17,9 +17,9 @@ from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
 from agents.run import RunResultStreaming
 
 from config import (
-    GEMINI_API_KEY,
-    GEMINI_BASE_URL,
-    GEMINI_MODEL,
+    GROQ_API_KEY,
+    GROQ_BASE_URL,
+    GROQ_MODEL,
     MAX_SELECTED_TEXT_LENGTH,
     QDRANT_URL,
     QDRANT_API_KEY,
@@ -32,16 +32,16 @@ import db
 # Use chat_completions API for non-OpenAI providers
 set_default_openai_api("chat_completions")
 
-# Gemini client (OpenAI-compatible)
-gemini_client = AsyncOpenAI(
-    api_key=GEMINI_API_KEY,
-    base_url=GEMINI_BASE_URL,
+# Groq client (OpenAI-compatible)
+groq_client = AsyncOpenAI(
+    api_key=GROQ_API_KEY,
+    base_url=GROQ_BASE_URL,
 )
 
-# Gemini model wrapper
-gemini_model = OpenAIChatCompletionsModel(
-    model=GEMINI_MODEL,
-    openai_client=gemini_client,
+# Groq model wrapper
+groq_model = OpenAIChatCompletionsModel(
+    model=GROQ_MODEL,
+    openai_client=groq_client,
 )
 
 
@@ -60,7 +60,7 @@ Guidelines:
 4. Cite your sources by mentioning which chapter/document the information comes from.
 5. Be helpful, clear, and accurate in your responses.
 6. If asked about something not covered in the book, explain that it's not in the textbook.""",
-    model=gemini_model,
+    model=groq_model,
     tools=[search_book],
 )
 
@@ -81,7 +81,7 @@ Guidelines:
 2. Do NOT use any external knowledge or make assumptions.
 3. If the answer is not in the selected text, say "I can only answer based on the selected text, and it doesn't contain information about that."
 4. Be helpful and accurate within the constraints of the selected text.""",
-        model=gemini_model,
+        model=groq_model,
         tools=[],  # NO tools in selected-text mode
     )
 
@@ -215,7 +215,7 @@ async def health_check():
     services = {
         "database": "unknown",
         "qdrant": "unknown",
-        "gemini": "available",  # Assume available if configured
+        "groq": "available",  # Assume available if configured
         "cohere": "available",  # Assume available if configured
     }
 
